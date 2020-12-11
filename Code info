@@ -1,0 +1,295 @@
+# Programme de simulation physique du groupe 11.71  
+  
+import matplotlib.pyplot as plt  
+import numpy as np  
+import math as mth  
+  
+################  
+## Constantes ##  
+################  
+  
+g = 9.81            # Constante gravitationelle  
+D = 7.35            # Coefficient d'ammortissement  
+Inertie = 10.12     # Inertie via Fusion 360  
+zg = 0.137          # Centre de masse  
+  
+#####################  
+## Implémentations ##  
+#####################  
+  
+Masse_Grue = float(input("Masse de la Grue : "))               # [Kg]  
+Longueur = float(input("Longueur de la barge : "))             # [m]  
+Largeur = float(input("Largeur de la barge : "))               # [m]  
+Hauteur = float(input("Hauteur de la grue + barge : "))        # [m]  
+Masse_charge = float(input("Masse de la charge : "))           # [Kg]  
+distance_charge = float(input("Distance de la charge : "))     # [m]  
+  
+#############  
+## Calculs ##  
+#############  
+  
+Masse_tot = Masse_Grue + Masse_charge                          # [Kg]  
+Archimède = (Masse_Grue+Masse_charge) * g                      # [N]  
+P = Archimède                                                  # [N]  
+hc = (Masse_Grue + Masse_charge) / ((Longueur*Largeur)*1025)   # [m]  
+couple_charge = -(Masse_charge * g * distance_charge)          # [N.m]  
+soulèvement_max = mth.atan(hc / (Longueur/2))                  # [rad]  
+submersion_max = mth.atan((Hauteur-hc) / (Longueur/2))         # [rad]  
+  
+###########  
+## Numpy ##  
+###########  
+  
+step = float(input("Pas de temps : "))                         # [s]  
+end = float(input("Temps maximal : "))                         # [s]  
+  
+theta_0 = 0.0244346009527921      
+w_0 = 0.0  
+xg_prime_0 = 0.0  
+xc_prime_0 = 0.0  
+  
+t = np.arange(0, end, step)  
+theta = np.empty_like(t)  
+w = np.empty_like(t)  
+a = np.empty_like(t)  
+d = np.empty_like(t)  
+list_0 = np.empty_like(t)  
+  
+soulèvement = np.empty_like(t)  
+submersion= np.empty_like(t)  
+distance_cha = np.empty_like(t)        # Pour la distance variable   
+couple_appliqué = np.empty_like(t)     # Pour le couple variable  
+list_0 = np.empty_like(t)  
+d[0] = 0  
+  
+""" 
+    Calcul du soulèvement et de la submersion maximale pour les graphiques 
+"""  
+for x in range(len(t)):  
+    soulèvement[x] = soulèvement_max  
+    submersion[x] = submersion_max  
+      
+def simulation():  
+    """ 
+        Créer une simulation de l'angle, la vitesse et l'accélération en fonction du temps 
+    """  
+       
+    # conditions initiales  
+    theta[0] = theta_0  
+    w[0] = w_0  
+    dt = step  
+    angle_max = 0  
+      
+    for i in range(len(t)-1):  
+  
+        # calcul du couple total  
+        xg_prime=(zg-hc)*mth.sin(theta[i])  
+          
+        Nomi=3*(hc-mth.tan(theta[i]/2))+Longueur*mth.tan(theta[i])  
+        Deno=2*(hc-mth.tan(theta[i]/2))+Longueur*mth.tan(theta[i])  
+        xc_prime=Longueur/2 -(Longueur/3 *(Nomi/Deno))  
+          
+        dist=(xg_prime-xc_prime)  
+          
+        couple_redressement=P*dist     
+        couple_total=couple_charge+couple_redressement  
+    
+        # calcul accélération, vitesse, position  
+        a[i] = ((-D*w[i])+couple_total) / Inertie  
+        theta[i+1] = theta[i] + w[i] * dt  
+        w[i+1] = w[i] + a[i] * dt  
+        a[i+1] = a[i]  
+        if abs(a[i]) > abs(angle_max):  
+            angle_max = a[i]  
+        else:  
+            pass  
+    print(angle_max)                                                                      # L'angle maximal d'inclinaison
+    print("Angle de stabilisation avec charge et distance max : "+str(float(theta[i])))   # Utiliser pour calculer l'angle au labo  
+          
+def simulation_charge(x):  
+    """ 
+        Simulation en fonction de la charge qu'on déplace, x étant le masse en kilos qu'on choisit. 
+    """  
+    Masse_charge = x  
+    Archimède = (Masse_Grue+Masse_charge) * g  
+    P = Archimède  
+    hc = (Masse_Grue + Masse_charge) / ((Longueur*Largeur)*1025)  
+    couple_charge = -(Masse_charge * g * distance_charge)  
+  
+    # conditions initiales  
+    theta[0] = theta_0  
+    w[0] = w_0  
+    dt = step  
+    d[0] = 0  
+    list_0[0]=0  
+  
+    for i in range(len(t)-1):  
+  
+        # calcul du couple total  
+        xg_prime=(zg-hc)*mth.sin(theta[i])  
+        Nomi=3*(hc-mth.tan(theta[i]/2))+Longueur*mth.tan(theta[i])  
+        Deno=2*(hc-mth.tan(theta[i]/2))+Longueur*mth.tan(theta[i])  
+        xc_prime=Longueur/2 -(Longueur/3 *(Nomi/Deno))  
+        dist=(xg_prime-xc_prime)  
+        couple_redressement=P*dist  
+        couple_total=couple_charge+couple_redressement  
+          
+        # calcul accélération, vitesse, position  
+        a[i] = ((-D*w[i])+couple_total) / Inertie  
+        theta[i+1] = theta[i] + w[i] * dt + (a[i]*dt**2)/2  
+        w[i+1] = w[i] + a[i] * dt  
+        a[i+1] = a[i]  
+          
+    #calcul de la distance et theta  
+    for i in range (len(t)-1):  
+        max_0 = -theta[-1]  
+        d[i+1] = d[i] + distance_charge/len(t)  
+        list_0[i+1] = list_0[i] + max_0/len(t)  
+  
+def distance_variable():  
+    """ 
+        Simulation de la charge que l'on déplace petit à petit vers sa distance finale 
+        Variation de l'angle, de la vitesse angulaire et du couple appliqué 
+    """  
+       
+    #conditions initiales  
+    couple_appliqué [0] = 0   
+    theta[0] = theta_0  
+    distance_cha[0] = 0  
+    w[0] = w_0  
+    V_0 = 0.01  
+    dt = step  
+      
+    for i in range(len(t)-1):  
+          
+        # calcul des couples  
+          
+        xg_prime=(zg-hc) * mth.sin(theta[i])  
+          
+        Nomi = 3*(hc-mth.tan(theta[i]/2))+Longueur*mth.tan(theta[i])  
+        Deno = 2*(hc-mth.tan(theta[i]/2))+Longueur*mth.tan(theta[i])  
+        xc_prime = Longueur/2 -(Longueur/3 *(Nomi/Deno))  
+          
+        dist=(xg_prime - xc_prime)  
+          
+        couple_charge = - (Masse_charge * g * distance_cha[i])  
+        couple_redressement = P * dist  
+        couple_total = couple_charge + couple_redressement  
+          
+        # calcul accélération, vitesse, position  
+          
+        a[i] = ((-D * w[i])+ couple_total) / Inertie  
+        theta[i+1] = theta[i] + w[i] * dt  
+        w[i+1] = w[i] + a[i] * dt  
+        a[i+1] = a[i]  
+          
+        if distance_cha[i] < distance_charge:  
+            distance_cha[i+1] = distance_cha[i] + V_0 * dt  
+            couple_appliqué[i+1] = (Masse_charge * g * distance_cha[i])  
+        else:  
+            distance_cha[i+1] = distance_cha[i]  
+            couple_appliqué[i+1] = couple_appliqué[i]  
+  
+################  
+## Graphiques ##  
+################  
+              
+def graphiques():  
+    """ 
+        Fonction permettant de dessiner un graphique avec l'angle, la vitesse et l'accélération en fonction du temps 
+    """  
+    plt.figure(1)  
+    plt.suptitle("Angle,vitesse et accélération en fonction du temps", fontsize=13, fontweight="bold")  
+    plt.subplot(3,1,1)  
+    plt.plot(t,theta, label="theta", color="green")  
+    plt.xlabel("t (s)")  
+    plt.ylabel("theta (rad)")  
+    plt.legend()  
+      
+    plt.subplot(3,1,2)  
+    plt.plot(t,w, label="w", color="orange")  
+    plt.xlabel("t (s)")  
+    plt.ylabel("Vitesse angu. (rad/s)")  
+    plt.legend()  
+      
+    plt.subplot(3,1,3)  
+    plt.plot(t,a, label="a", color="purple")  
+    plt.xlabel("t (s)")  
+    plt.ylabel("Accélération angu. (rad/s²)")  
+    plt.legend()  
+    plt.show()  
+  
+  
+def graphique_trajectoire():  
+    """ 
+        Fonction permettant de voir si la barge va se submerger voir se soulever en fonction du temps 
+    """  
+    plt.figure(2)  
+    plt.suptitle("Submersion et soulèvement en fonction du temps", fontsize=13, fontweight="bold")  
+    plt.plot(t,theta, label="theta", color="green")  
+    plt.plot(t,soulèvement,"--r", label="soulèvement")  
+    plt.plot(t,-soulèvement, "--r")  
+    plt.plot(t,submersion, "--m", label="submersion")  
+    plt.plot(t,-submersion,"--m")  
+    plt.xlabel("t (s)")  
+    plt.ylabel("theta (rad)")  
+    plt.legend()  
+    plt.show()  
+      
+def graphique_dist_var():  
+    """ 
+       Fonction permettant de dessiner le graphique de la distance qui varie en fonction du temps  
+    """  
+    plt.figure(3)  
+    plt.suptitle("Angle,vitesse et couple en fonction de la distance et du temps", fontsize=13, fontweight="bold")  
+    plt.subplot(3,1,1)  
+    plt.plot(t,theta, label="theta", color = "green")  
+    plt.plot(t,-soulèvement, "--r",label="soulèvement")  
+    plt.xlabel("t (s)")  
+    plt.ylabel("theta (rad)")  
+    plt.legend()  
+      
+    plt.subplot(3,1,2)  
+    plt.plot(t,w, label="w", color = "darkblue")  
+    plt.xlabel("t (s)")  
+    plt.ylabel("vitesse angulaire (rad/s)")  
+    plt.legend()  
+      
+    plt.subplot(3,1,3)  
+    plt.plot(t,couple_appliqué, label="couple appliqué ", color = "orange")  
+    plt.xlabel("t (s)")  
+    plt.ylabel(" couple appliqué (N.m)")  
+    plt.legend()  
+    plt.show()  
+          
+def graphique_distance():  
+    """ 
+        Fonction permettant de voir l'inclinaison de la barge en fonction de la masse choisit 
+    """  
+    plt.figure(4)  
+    plt.suptitle("Inclinaison en fonction de la masse", fontsize=13, fontweight="bold")  
+    simulation_charge(1)  
+    plt.plot(d,list_0, label="charge 1 - 1 kg", color="blue")  
+    simulation_charge(0.75)  
+    plt.plot(d,list_0, label="charge 2 - 0.75 kg", color="green")  
+    simulation_charge(0.5)  
+    plt.plot(d,list_0, label="charge 3 - 0.5 kg", color="red")  
+    simulation_charge(0.25)  
+    plt.plot(d,list_0, label="charge 4 - 0.25 kg", color="purple")  
+      
+    plt.plot(t,soulèvement,"--r", label="soulèvement")  
+      
+    plt.xlim(0,distance_charge)  
+    plt.grid(axis="both", color="grey", linestyle="-", linewidth=0.5)  
+    plt.legend()  
+    plt.xlabel('distance (m)')  
+    plt.ylabel('inclinaison (rad)')  
+    plt.show()  
+      
+  
+simulation()  
+graphiques()  
+graphique_trajectoire()  
+distance_variable()  
+graphique_dist_var()  
+graphique_distance() 
